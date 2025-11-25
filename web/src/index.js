@@ -240,6 +240,7 @@ app.use(session({
   cookie: {
     secure: process.env.NODE_ENV === 'production',
     sameSite: 'strict',
+    httpOnly: true,
     maxAge: 24 * 60 * 60 * 1000 // 24 hours
   }
 }));
@@ -247,25 +248,33 @@ app.use(session({
 app.use(passport.initialize());
 app.use(passport.session());
 
-// CSRF protection middleware (applied to state-changing routes)
-// Skip CSRF for webhook endpoints and API verification
-const csrfProtection = (req, res, next) => {
-  // Skip CSRF for Stripe webhooks and API endpoints
-  if (req.path.startsWith('/webhook/') || req.path.startsWith('/api/')) {
-    return next();
-  }
-  // Skip for GET requests
-  if (req.method === 'GET') {
-    return next();
-  }
-  return doubleCsrfProtection(req, res, next);
-};
-
 // Make CSRF token available to views
 app.use((req, res, next) => {
   // Generate CSRF token for views
   res.locals.csrfToken = generateToken(req, res);
   next();
+});
+
+// Apply CSRF protection globally for state-changing requests
+// Skip for specific exempt routes (webhooks, API verification)
+app.use((req, res, next) => {
+  // Skip CSRF for GET, HEAD, OPTIONS requests
+  if (['GET', 'HEAD', 'OPTIONS'].includes(req.method)) {
+    return next();
+  }
+  
+  // Skip CSRF for Stripe webhooks (they use signature verification)
+  if (req.path.startsWith('/webhook/')) {
+    return next();
+  }
+  
+  // Skip CSRF for API token verification (uses header-based auth)
+  if (req.path.startsWith('/api/')) {
+    return next();
+  }
+  
+  // Apply CSRF protection to all other POST/PUT/DELETE requests
+  return doubleCsrfProtection(req, res, next);
 });
 
 // Passport GitHub Strategy
@@ -388,7 +397,7 @@ app.get('/pricing', isAuthenticated, (req, res) => {
 });
 
 // Stripe checkout session
-app.post('/create-checkout-session', authLimiter, csrfProtection, isAuthenticated, async (req, res) => {
+app.post('/create-checkout-session', authLimiter, isAuthenticated, async (req, res) => {
   if (!stripe) {
     return res.status(500).json({ error: 'Stripe not configured' });
   }
@@ -488,7 +497,7 @@ app.post('/webhook/stripe', express.raw({ type: 'application/json' }), async (re
 });
 
 // Container management
-app.post('/containers/create', containerLimiter, csrfProtection, isAuthenticated, hasActiveSubscription, async (req, res) => {
+app.post('/containers/create', containerLimiter, isAuthenticated, hasActiveSubscription, async (req, res) => {
   try {
     // Generate SSH token for authentication
     const sshToken = uuidv4();
@@ -561,7 +570,7 @@ app.get('/containers/:id', isAuthenticated, async (req, res) => {
   });
 });
 
-app.delete('/containers/:id', containerLimiter, csrfProtection, isAuthenticated, async (req, res) => {
+app.delete('/containers/:id', containerLimiter, isAuthenticated, async (req, res) => {
   const container = await Container.findOne({
     where: { id: req.params.id, userId: req.user.id }
   });
