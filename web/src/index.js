@@ -9,9 +9,39 @@ const Stripe = require('stripe');
 const { Sequelize, DataTypes } = require('sequelize');
 const SequelizeStore = require('connect-session-sequelize')(session.Store);
 const { v4: uuidv4 } = require('uuid');
+const crypto = require('crypto');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+
+// Encryption utilities for storing sensitive tokens
+const ENCRYPTION_KEY = process.env.ENCRYPTION_KEY || crypto.randomBytes(32).toString('hex').slice(0, 32);
+const IV_LENGTH = 16;
+
+function encrypt(text) {
+  if (!text) return null;
+  const iv = crypto.randomBytes(IV_LENGTH);
+  const cipher = crypto.createCipheriv('aes-256-cbc', Buffer.from(ENCRYPTION_KEY, 'utf8'), iv);
+  let encrypted = cipher.update(text);
+  encrypted = Buffer.concat([encrypted, cipher.final()]);
+  return iv.toString('hex') + ':' + encrypted.toString('hex');
+}
+
+function decrypt(text) {
+  if (!text) return null;
+  try {
+    const textParts = text.split(':');
+    const iv = Buffer.from(textParts.shift(), 'hex');
+    const encryptedText = Buffer.from(textParts.join(':'), 'hex');
+    const decipher = crypto.createDecipheriv('aes-256-cbc', Buffer.from(ENCRYPTION_KEY, 'utf8'), iv);
+    let decrypted = decipher.update(encryptedText);
+    decrypted = Buffer.concat([decrypted, decipher.final()]);
+    return decrypted.toString();
+  } catch (error) {
+    console.error('Decryption error:', error.message);
+    return null;
+  }
+}
 
 // Configuration from environment variables
 const config = {
@@ -43,12 +73,34 @@ const config = {
 // Initialize Stripe
 const stripe = config.stripe.secretKey ? new Stripe(config.stripe.secretKey) : null;
 
-// Database setup
-const sequelize = new Sequelize({
-  dialect: 'sqlite',
-  storage: process.env.DATABASE_URL || './database.sqlite',
-  logging: false
-});
+// Database setup - supports SQLite for development and PostgreSQL for production
+const databaseUrl = process.env.DATABASE_URL;
+let sequelizeConfig;
+
+if (databaseUrl && databaseUrl.startsWith('postgres')) {
+  // PostgreSQL configuration for production (Railway)
+  sequelizeConfig = {
+    dialect: 'postgres',
+    logging: false,
+    dialectOptions: {
+      ssl: process.env.NODE_ENV === 'production' ? {
+        require: true,
+        rejectUnauthorized: false
+      } : false
+    }
+  };
+} else {
+  // SQLite configuration for development
+  sequelizeConfig = {
+    dialect: 'sqlite',
+    storage: databaseUrl || './database.sqlite',
+    logging: false
+  };
+}
+
+const sequelize = databaseUrl && databaseUrl.startsWith('postgres') 
+  ? new Sequelize(databaseUrl, sequelizeConfig)
+  : new Sequelize(sequelizeConfig);
 
 // Models
 const User = sequelize.define('User', {
@@ -155,8 +207,11 @@ if (config.github.clientId && config.github.clientSecret) {
     clientSecret: config.github.clientSecret,
     callbackURL: config.github.callbackUrl,
     scope: ['user:email', 'read:user']
-  }, async (accessToken, refreshToken, profile, done) => {
+  }, async (accessToken, _refreshToken, profile, done) => {
     try {
+      // Encrypt the access token before storing
+      const encryptedToken = encrypt(accessToken);
+      
       let user = await User.findOne({ where: { githubId: profile.id } });
       
       if (!user) {
@@ -165,14 +220,14 @@ if (config.github.clientId && config.github.clientSecret) {
           username: profile.username,
           email: profile.emails?.[0]?.value,
           avatarUrl: profile.photos?.[0]?.value,
-          accessToken: accessToken
+          accessToken: encryptedToken
         });
       } else {
         await user.update({
           username: profile.username,
           email: profile.emails?.[0]?.value,
           avatarUrl: profile.photos?.[0]?.value,
-          accessToken: accessToken
+          accessToken: encryptedToken
         });
       }
       
@@ -465,6 +520,9 @@ async function deployToRailway(container, user) {
   // This would use the Railway API to deploy the container
   // https://docs.railway.app/reference/public-api
   
+  // Decrypt the access token for container deployment
+  const decryptedToken = decrypt(user.accessToken);
+  
   const response = await fetch('https://backboard.railway.app/graphql/v2', {
     method: 'POST',
     headers: {
@@ -487,7 +545,7 @@ async function deployToRailway(container, user) {
           },
           variables: {
             SSH_TOKEN: container.sshToken,
-            GITHUB_TOKEN: user.accessToken,
+            GITHUB_TOKEN: decryptedToken,
             USER_ID: user.id
           }
         }
@@ -551,9 +609,12 @@ app.get('/api/verify-token', async (req, res) => {
     return res.status(401).json({ error: 'User not found' });
   }
 
+  // Decrypt the access token before sending
+  const decryptedToken = decrypt(user.accessToken);
+
   res.json({
     valid: true,
-    githubToken: user.accessToken,
+    githubToken: decryptedToken,
     username: user.username
   });
 });
