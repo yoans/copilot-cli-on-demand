@@ -1,0 +1,47 @@
+{
+  "name": "copilot-cli-on-demand",
+  "version": "1.0.0",
+  "description": "On-demand Copilot CLI containers with SSH access",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "nodemon src/index.js",
+    "lint": "eslint src/",
+    "test": "jest"
+  },
+  "keywords": [
+    "copilot",
+    "cli",
+    "containers",
+    "railway",
+    "ssh"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "connect-session-sequelize": "^7.1.7",
+    "cookie-parser": "^1.4.7",
+    "csrf-csrf": "^4.0.3",
+    "dotenv": "^16.3.1",
+    "ejs": "^3.1.9",
+    "express": "^4.18.2",
+    "express-rate-limit": "^8.2.1",
+    "express-session": "^1.17.3",
+    "passport": "^0.7.0",
+    "passport-github2": "^0.1.12",
+    "pg": "^8.11.3",
+    "pg-hstore": "^2.3.4",
+    "sequelize": "^6.35.2",
+    "sqlite3": "^5.1.7",
+    "stripe": "^14.9.0",
+    "uuid": "^9.0.1"
+  },
+  "devDependencies": {
+    "eslint": "^8.56.0",
+    "jest": "^29.7.0",
+    "nodemon": "^3.0.2"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

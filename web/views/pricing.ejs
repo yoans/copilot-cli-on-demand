@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="csrf-token" content="<%= csrfToken %>">
+    <title>Pricing - Copilot CLI On-Demand</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <script src="https://js.stripe.com/v3/"></script>
+    <style>
+        .hero-pattern {
+            background-color: #0d1117;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='100' viewBox='0 0 100 100'%3E%3Cg fill-rule='evenodd'%3E%3Cg fill='%23238636' fill-opacity='0.1'%3E%3Cpath opacity='.5' d='M96 95h4v1h-4v4h-1v-4h-9v4h-1v-4h-9v4h-1v-4h-9v4h-1v-4h-9v4h-1v-4h-9v4h-1v-4h-9v4h-1v-4h-9v4h-1v-4h-9v4h-1v-4H0v-1h15v-9H0v-1h15v-9H0v-1h15v-9H0v-1h15v-9H0v-1h15v-9H0v-1h15v-9H0v-1h15v-9H0v-1h15v-9H0v-1h15V0h1v15h9V0h1v15h9V0h1v15h9V0h1v15h9V0h1v15h9V0h1v15h9V0h1v15h9V0h1v15h9V0h1v15h4v1h-4v9h4v1h-4v9h4v1h-4v9h4v1h-4v9h4v1h-4v9h4v1h-4v9h4v1h-4v9h4v1h-4v9zm-1 0v-9h-9v9h9zm-10 0v-9h-9v9h9zm-10 0v-9h-9v9h9zm-10 0v-9h-9v9h9zm-10 0v-9h-9v9h9zm-10 0v-9h-9v9h9zm-10 0v-9h-9v9h9zm-10 0v-9h-9v9h9zm-9-10h9v-9h-9v9zm10 0h9v-9h-9v9zm10 0h9v-9h-9v9zm10 0h9v-9h-9v9zm10 0h9v-9h-9v9zm10 0h9v-9h-9v9zm10 0h9v-9h-9v9zm10 0h9v-9h-9v9z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+        }
+    </style>
+</head>
+<body class="hero-pattern min-h-screen">
+    <nav class="bg-gray-900 border-b border-gray-800">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex items-center justify-between h-16">
+                <div class="flex items-center">
+                    <a href="/" class="flex items-center">
+                        <svg class="w-8 h-8 text-green-500" fill="currentColor" viewBox="0 0 24 24">
+                            <path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/>
+                        </svg>
+                        <span class="ml-2 text-white font-bold text-xl">Copilot CLI On-Demand</span>
+                    </a>
+                </div>
+                <div class="flex items-center space-x-4">
+                    <a href="/dashboard" class="text-gray-300 hover:text-white px-3 py-2 rounded-md text-sm font-medium">Dashboard</a>
+                    <a href="/pricing" class="text-white px-3 py-2 rounded-md text-sm font-medium bg-gray-800">Pricing</a>
+                    <a href="/logout" class="text-gray-300 hover:text-white px-3 py-2 rounded-md text-sm font-medium">Logout</a>
+                    <img src="<%= user.avatarUrl %>" alt="Avatar" class="w-8 h-8 rounded-full">
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
+        <div class="text-center mb-12">
+            <h1 class="text-4xl font-extrabold text-white">Simple, Transparent Pricing</h1>
+            <p class="mt-4 text-xl text-gray-400">Get instant access to Copilot CLI containers</p>
+        </div>
+
+        <div class="grid md:grid-cols-2 gap-8 max-w-4xl mx-auto">
+            <!-- Free Tier -->
+            <div class="bg-gray-800 rounded-lg p-8 border border-gray-700">
+                <h3 class="text-2xl font-bold text-white">Free Trial</h3>
+                <p class="mt-4 text-gray-400">Perfect for trying out the service</p>
+                <div class="mt-6">
+                    <span class="text-4xl font-extrabold text-white">$0</span>
+                    <span class="text-gray-400">/month</span>
+                </div>
+                <ul class="mt-6 space-y-4">
+                    <li class="flex items-center">
+                        <svg class="w-5 h-5 text-green-500 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+                        </svg>
+                        <span class="text-gray-300">1 container per day</span>
+                    </li>
+                    <li class="flex items-center">
+                        <svg class="w-5 h-5 text-green-500 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+                        </svg>
+                        <span class="text-gray-300">1 hour session limit</span>
+                    </li>
+                    <li class="flex items-center">
+                        <svg class="w-5 h-5 text-green-500 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+                        </svg>
+                        <span class="text-gray-300">SSH access</span>
+                    </li>
+                </ul>
+                <button disabled class="mt-8 w-full bg-gray-700 text-gray-400 px-4 py-2 rounded-md text-sm font-medium cursor-not-allowed">
+                    Coming Soon
+                </button>
+            </div>
+
+            <!-- Pro Tier -->
+            <div class="bg-gray-800 rounded-lg p-8 border-2 border-green-500 relative">
+                <div class="absolute -top-4 left-1/2 transform -translate-x-1/2">
+                    <span class="bg-green-500 text-white px-4 py-1 rounded-full text-sm font-medium">Popular</span>
+                </div>
+                <h3 class="text-2xl font-bold text-white">Pro</h3>
+                <p class="mt-4 text-gray-400">For developers who need more power</p>
+                <div class="mt-6">
+                    <span class="text-4xl font-extrabold text-white">$19</span>
+                    <span class="text-gray-400">/month</span>
+                </div>
+                <ul class="mt-6 space-y-4">
+                    <li class="flex items-center">
+                        <svg class="w-5 h-5 text-green-500 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+                        </svg>
+                        <span class="text-gray-300">Unlimited containers</span>
+                    </li>
+                    <li class="flex items-center">
+                        <svg class="w-5 h-5 text-green-500 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+                        </svg>
+                        <span class="text-gray-300">24 hour session limit</span>
+                    </li>
+                    <li class="flex items-center">
+                        <svg class="w-5 h-5 text-green-500 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+                        </svg>
+                        <span class="text-gray-300">SSH access</span>
+                    </li>
+                    <li class="flex items-center">
+                        <svg class="w-5 h-5 text-green-500 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+                        </svg>
+                        <span class="text-gray-300">Priority support</span>
+                    </li>
+                    <li class="flex items-center">
+                        <svg class="w-5 h-5 text-green-500 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+                        </svg>
+                        <span class="text-gray-300">GitHub Copilot integration</span>
+                    </li>
+                </ul>
+                <% if (user.subscriptionStatus === 'active') { %>
+                    <button disabled class="mt-8 w-full bg-gray-600 text-gray-300 px-4 py-2 rounded-md text-sm font-medium cursor-not-allowed">
+                        Current Plan
+                    </button>
+                <% } else { %>
+                    <button id="subscribeBtn" class="mt-8 w-full bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-md text-sm font-medium">
+                        Subscribe Now
+                    </button>
+                <% } %>
+            </div>
+        </div>
+
+        <!-- FAQ Section -->
+        <div class="mt-20 max-w-3xl mx-auto">
+            <h2 class="text-2xl font-bold text-white text-center mb-8">Frequently Asked Questions</h2>
+            <div class="space-y-6">
+                <div class="bg-gray-800 rounded-lg p-6">
+                    <h3 class="text-lg font-semibold text-white">How does authentication work?</h3>
+                    <p class="mt-2 text-gray-400">When you sign in with GitHub, we securely store your access token. When you launch a container, your GitHub credentials are automatically available, allowing Copilot CLI to authenticate with your GitHub account.</p>
+                </div>
+                <div class="bg-gray-800 rounded-lg p-6">
+                    <h3 class="text-lg font-semibold text-white">What's included in the container?</h3>
+                    <p class="mt-2 text-gray-400">Each container comes pre-configured with GitHub Copilot CLI, Node.js, Python, and common development tools. SSH access is enabled for secure remote access.</p>
+                </div>
+                <div class="bg-gray-800 rounded-lg p-6">
+                    <h3 class="text-lg font-semibold text-white">Can I cancel my subscription?</h3>
+                    <p class="mt-2 text-gray-400">Yes, you can cancel your subscription at any time. You'll continue to have access until the end of your billing period.</p>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <% if (config.stripePublishableKey) { %>
+    <script>
+        const stripe = Stripe('<%= config.stripePublishableKey %>');
+        
+        document.getElementById('subscribeBtn')?.addEventListener('click', async () => {
+            const button = document.getElementById('subscribeBtn');
+            button.disabled = true;
+            button.textContent = 'Processing...';
+
+            const csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
+
+            try {
+                const response = await fetch('/create-checkout-session', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRF-Token': csrfToken
+                    }
+                });
+
+                const result = await response.json();
+
+                if (result.url) {
+                    window.location.href = result.url;
+                } else if (result.sessionId) {
+                    const { error } = await stripe.redirectToCheckout({
+                        sessionId: result.sessionId
+                    });
+                    
+                    if (error) {
+                        console.error('Stripe redirect error:', error);
+                        alert('Payment failed: ' + error.message);
+                    }
+                } else {
+                    alert('Failed to create checkout session: ' + result.error);
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                alert('An error occurred. Please try again.');
+            } finally {
+                button.disabled = false;
+                button.textContent = 'Subscribe Now';
+            }
+        });
+    </script>
+    <% } %>
+</body>
+</html>
