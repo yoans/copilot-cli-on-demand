@@ -10,9 +10,51 @@ const { Sequelize, DataTypes } = require('sequelize');
 const SequelizeStore = require('connect-session-sequelize')(session.Store);
 const { v4: uuidv4 } = require('uuid');
 const crypto = require('crypto');
+const rateLimit = require('express-rate-limit');
+const cookieParser = require('cookie-parser');
+const { doubleCsrf } = require('csrf-csrf');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+
+// Rate limiting configuration
+const apiLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 100, // Limit each IP to 100 requests per windowMs
+  message: { error: 'Too many requests, please try again later.' },
+  standardHeaders: true,
+  legacyHeaders: false
+});
+
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 10, // Limit each IP to 10 auth requests per windowMs
+  message: { error: 'Too many authentication attempts, please try again later.' },
+  standardHeaders: true,
+  legacyHeaders: false
+});
+
+const containerLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000, // 1 hour
+  max: 20, // Limit each IP to 20 container operations per hour
+  message: { error: 'Too many container operations, please try again later.' },
+  standardHeaders: true,
+  legacyHeaders: false
+});
+
+// CSRF protection configuration
+const CSRF_SECRET = process.env.CSRF_SECRET || crypto.randomBytes(32).toString('hex');
+const { generateToken, doubleCsrfProtection } = doubleCsrf({
+  getSecret: () => CSRF_SECRET,
+  cookieName: '__Host-csrf',
+  cookieOptions: {
+    httpOnly: true,
+    sameSite: 'strict',
+    path: '/',
+    secure: process.env.NODE_ENV === 'production'
+  },
+  getTokenFromRequest: (req) => req.body._csrf || req.headers['x-csrf-token']
+});
 
 // Encryption utilities for storing sensitive tokens
 const ENCRYPTION_KEY = process.env.ENCRYPTION_KEY || crypto.randomBytes(32).toString('hex').slice(0, 32);
@@ -183,8 +225,12 @@ const sessionStore = new SequelizeStore({
 app.set('view engine', 'ejs');
 app.set('views', path.join(__dirname, '../views'));
 app.use(express.static(path.join(__dirname, '../public')));
+app.use(cookieParser());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+
+// Apply rate limiting globally
+app.use(apiLimiter);
 
 app.use(session({
   secret: config.session.secret,
@@ -193,12 +239,34 @@ app.use(session({
   saveUninitialized: false,
   cookie: {
     secure: process.env.NODE_ENV === 'production',
+    sameSite: 'strict',
     maxAge: 24 * 60 * 60 * 1000 // 24 hours
   }
 }));
 
 app.use(passport.initialize());
 app.use(passport.session());
+
+// CSRF protection middleware (applied to state-changing routes)
+// Skip CSRF for webhook endpoints and API verification
+const csrfProtection = (req, res, next) => {
+  // Skip CSRF for Stripe webhooks and API endpoints
+  if (req.path.startsWith('/webhook/') || req.path.startsWith('/api/')) {
+    return next();
+  }
+  // Skip for GET requests
+  if (req.method === 'GET') {
+    return next();
+  }
+  return doubleCsrfProtection(req, res, next);
+};
+
+// Make CSRF token available to views
+app.use((req, res, next) => {
+  // Generate CSRF token for views
+  res.locals.csrfToken = generateToken(req, res);
+  next();
+});
 
 // Passport GitHub Strategy
 if (config.github.clientId && config.github.clientSecret) {
@@ -320,7 +388,7 @@ app.get('/pricing', isAuthenticated, (req, res) => {
 });
 
 // Stripe checkout session
-app.post('/create-checkout-session', isAuthenticated, async (req, res) => {
+app.post('/create-checkout-session', authLimiter, csrfProtection, isAuthenticated, async (req, res) => {
   if (!stripe) {
     return res.status(500).json({ error: 'Stripe not configured' });
   }
@@ -420,7 +488,7 @@ app.post('/webhook/stripe', express.raw({ type: 'application/json' }), async (re
 });
 
 // Container management
-app.post('/containers/create', isAuthenticated, hasActiveSubscription, async (req, res) => {
+app.post('/containers/create', containerLimiter, csrfProtection, isAuthenticated, hasActiveSubscription, async (req, res) => {
   try {
     // Generate SSH token for authentication
     const sshToken = uuidv4();
@@ -493,7 +561,7 @@ app.get('/containers/:id', isAuthenticated, async (req, res) => {
   });
 });
 
-app.delete('/containers/:id', isAuthenticated, async (req, res) => {
+app.delete('/containers/:id', containerLimiter, csrfProtection, isAuthenticated, async (req, res) => {
   const container = await Container.findOne({
     where: { id: req.params.id, userId: req.user.id }
   });
